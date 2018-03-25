@@ -1,0 +1,15 @@
+[package]
+name = "aquarium_server_mqtt"
+version = "0.1.0"
+authors = ["Jon Neal <reportingsjr@gmail.com>"]
+
+[features]
+default = ["ssl"]
+ssl = ["netopt/ssl"]
+
+[dependencies]
+rand = "0.3"
+byteorder = "0.4"
+mqtt3 = "0.1"
+mqttc = "0.1"
+netopt = { version = "0.1", default-features = false }

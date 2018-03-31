@@ -7,7 +7,7 @@ use std::sync::Arc;
 use netopt::NetworkOptions;
 #[allow(unused_imports)]
 use mqttc::{PubSub, Client, ClientOptions, ReconnectMethod};
-use mqtt3::Message;
+use mqtt3::{Message, TopicPath, QoS, PacketIdentifier};
 
 struct Temperature {
 	temperature: f64,
@@ -25,9 +25,6 @@ fn main() {
 
     client.subscribe("/aquarium/temperature").unwrap();
     client.await().unwrap();
-    //client.subscribe("a/b/c").unwrap();
-    //client.publish(topic.as_str(), "Hello", PubOpt::at_least_once());
-
     loop {
         match client.await() {
             Ok(result) => {
@@ -49,7 +46,7 @@ fn main() {
 fn parse_temperature(message: Box<Message>) -> Result<Temperature, &'static str> {
 	let raw_message = String::from_utf8(Arc::try_unwrap(message.payload).unwrap()).expect("invalid utf-8");
 	let temperature = raw_message.parse::<f64>().unwrap();
-	
+
 	let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
 		Ok(current_time) => current_time,
 		Err(_) => return Err("failed to get current time")
@@ -63,4 +60,33 @@ fn parse_temperature(message: Box<Message>) -> Result<Temperature, &'static str>
 		temperature: temperature,
 		timestamp: time,
 	})
+}
+
+#[test]
+fn temperature_parsing() {
+	let message = Box::new(Message {
+		topic: TopicPath::from_str("/aquarium/temperature").unwrap(),
+		qos: QoS::AtLeastOnce,
+		retain: false,
+		pid: Some(PacketIdentifier(1)),
+		payload: Arc::new("20.0".as_bytes().to_vec())
+	});
+
+	let parsed_temp = parse_temperature(message).unwrap();
+
+	assert_eq!(parsed_temp.temperature, 20.0);
+}
+
+#[test]
+#[should_panic]
+fn temperature_parsing_out_of_bounds() {
+	let message = Box::new(Message {
+		topic: TopicPath::from_str("/aquarium/temperature").unwrap(),
+		qos: QoS::AtLeastOnce,
+		retain: false,
+		pid: Some(PacketIdentifier(1)),
+		payload: Arc::new("-127.0".as_bytes().to_vec())
+	});
+
+	parse_temperature(message).unwrap();
 }
